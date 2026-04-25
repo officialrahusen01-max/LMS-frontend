@@ -1,8 +1,13 @@
 /** @type {import('next').NextConfig} */
-const backendOrigin =
+let backendOrigin =
   process.env.BACKEND_ORIGIN ||
   process.env.INTERNAL_API_ORIGIN ||
   "http://127.0.0.1:5000";
+
+// Ensure protocol is present
+if (!backendOrigin.startsWith("http://") && !backendOrigin.startsWith("https://")) {
+  backendOrigin = `http://${backendOrigin}`;
+}
 
 const nextConfig = {
   typescript: {

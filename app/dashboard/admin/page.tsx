@@ -181,6 +181,15 @@ export default function AdminDashboardPage() {
           </p>
           <p className="text-xs text-muted-foreground">This month: {certificates.certificatesThisMonth ?? 0}</p>
         </StatLink>
+
+        <StatLink href="/dashboard/admin/blogs">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <BookOpen size={20} />
+            <span className="text-sm font-medium">Blogs</span>
+          </div>
+          <p className="mt-2 text-2xl font-semibold text-card-foreground">Manage</p>
+          <p className="text-xs text-muted-foreground">View and create blogs</p>
+        </StatLink>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">

@@ -6,10 +6,11 @@ import Link from "next/link";
 import {
   LogIn, UserPlus, BookOpen, Award, Mail, MessageSquare,
   Send, User, FileCheck, Users, GraduationCap, Circle,
-  Phone, ChevronLeft, ChevronRight, Star, TrendingUp, Zap, Shield
+  Phone, ChevronLeft, ChevronRight, Star, TrendingUp, Zap, Shield, Calendar, Tag
 } from "lucide-react";
 import { LanguageSelector } from "@/components/language-selector";
 import { useTranslationHook } from "@/lib/translations";
+import { apiJson } from "@/lib/api";
 
 const WISE_SLIDE_KEYS = ["slide1", "slide2", "slide3"] as const;
 const WISE_SLIDE_IMAGES = [
@@ -37,15 +38,23 @@ const STATS = [
 const INITIALS = (name: string) =>
   name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
 
+// Global flag to prevent duplicate fetches in dev (StrictMode double mount)
+let isFetchingBlogs = false;
+
 export default function WelcomePage() {
   const { t } = useTranslationHook();
   const [current, setCurrent] = useState(0);
   const [scrolled, setScrolled] = useState(false);
+  const [activeSection, setActiveSection] = useState<"home" | "about" | "contact">("home");
   const teachersScrollRef = useRef<HTMLDivElement>(null);
   const [contactForm, setContactForm] = useState({ name: "", email: "", subject: "", message: "" });
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [contactError, setContactError] = useState<string | null>(null);
+  const [blogs, setBlogs] = useState<any[]>([]);
+  const [blogsLoading, setBlogsLoading] = useState(false);
+  const [blogsError, setBlogsError] = useState<string | null>(null);
+  const [hasFetchedBlogs, setHasFetchedBlogs] = useState(false);
 
   const next = useCallback(() => setCurrent((c) => (c + 1) % WISE_SLIDE_KEYS.length), []);
 
@@ -59,6 +68,29 @@ export default function WelcomePage() {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  // Fetch blogs for the welcome page
+  useEffect(() => {
+    if (!isFetchingBlogs && !hasFetchedBlogs && !blogsLoading && !blogsError) {
+      isFetchingBlogs = true;
+      setBlogsLoading(true);
+      apiJson<{ data: any[] }>("blogs?limit=20")
+        .then((res) => {
+          setBlogs(res?.data ?? []);
+          setBlogsError(null);
+          setHasFetchedBlogs(true);
+        })
+        .catch((e) => {
+          setBlogsError(e instanceof Error ? e.message : "Failed to load blogs");
+          setBlogs([]);
+          setHasFetchedBlogs(true);
+        })
+        .finally(() => {
+          setBlogsLoading(false);
+          isFetchingBlogs = false;
+        });
+    }
+  }, [hasFetchedBlogs, blogsLoading, blogsError]);
 
   const handleContactChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -401,12 +433,49 @@ export default function WelcomePage() {
             {/* Nav */}
             <nav style={{ display: "flex", alignItems: "center", gap: 32 }}>
               {["Home", "About", "Contact"].map((item) => (
-                <Link key={item} href={item === "Home" ? "/" : `/${item.toLowerCase()}`}
-                  style={{ color: "rgba(255,255,255,.78)", fontSize: ".88rem", fontWeight: 500, textDecoration: "none", letterSpacing: ".02em", transition: "color .2s" }}
-                  onMouseEnter={e => (e.currentTarget.style.color = "#E8C97A")}
-                  onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,.78)")}
-                >{item}</Link>
+                <button
+                  key={item}
+                  onClick={() => setActiveSection(item.toLowerCase() as "home" | "about" | "contact")}
+                  style={{ 
+                    background: "none", 
+                    border: "none",
+                    color: activeSection === item.toLowerCase() ? "#E8C97A" : "rgba(255,255,255,.78)",
+                    fontSize: ".88rem", 
+                    fontWeight: 500, 
+                    textDecoration: "none", 
+                    letterSpacing: ".02em", 
+                    transition: "color .2s",
+                    cursor: "pointer"
+                  }}
+                  onMouseEnter={(e) => {
+                    if (activeSection !== item.toLowerCase()) {
+                      e.currentTarget.style.color = "#E8C97A";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (activeSection !== item.toLowerCase()) {
+                      e.currentTarget.style.color = "rgba(255,255,255,.78)";
+                    }
+                  }}
+                >
+                  {item}
+                </button>
               ))}
+              <Link
+                href="/blog"
+                style={{ 
+                  color: "rgba(255,255,255,.78)",
+                  fontSize: ".88rem", 
+                  fontWeight: 500, 
+                  textDecoration: "none", 
+                  letterSpacing: ".02em", 
+                  transition: "color .2s"
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.color = "#E8C97A"}
+                onMouseLeave={(e) => e.currentTarget.style.color = "rgba(255,255,255,.78)"}
+              >
+                Blog
+              </Link>
             </nav>
 
             {/* CTAs */}
@@ -657,102 +726,275 @@ export default function WelcomePage() {
           </div>
         </section>
 
-        {/* ══════════════════ CONTACT ══════════════════ */}
+        {/* ══════════════════ CONTACT SECTION ══════════════════ */}
+        {activeSection !== "blog" && (
+          <section style={{ background: "#FAF6EE", padding: "96px 24px" }}>
+            <div style={{ maxWidth: 1280, margin: "0 auto" }}>
+              <div style={{ textAlign: "center", marginBottom: 56 }}>
+                <div style={{ display: "inline-flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+                  <div className="gold-rule" />
+                  <span style={{ fontSize: ".75rem", fontWeight: 700, color: "#C9A84C", letterSpacing: ".12em", textTransform: "uppercase" }}>Get In Touch</span>
+                  <div className="gold-rule" />
+                </div>
+                <h2 className="display" style={{ fontSize: "clamp(2rem,4vw,3.2rem)", fontWeight: 700, color: "#0B1426", lineHeight: 1.15 }}>
+                  {t("home.contact.title") || "Ready to Start Your Learning Journey?"}
+                </h2>
+                <p style={{ color: "#64748B", fontSize: "1.05rem", maxWidth: 460, margin: "16px auto 0", lineHeight: 1.7 }}>
+                  {t("home.contact.subtitle") || "Have questions? We're here to help you every step of the way."}
+                </p>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))", gap: 48, alignItems: "start" }}>
+                <div>
+                  <h3 className="display" style={{ fontSize: "1.5rem", fontWeight: 600, color: "#0B1426", marginBottom: 24 }}>
+                    {t("home.contact.formTitle") || "Send us a message"}
+                  </h3>
+                  {sent ? (
+                    <div style={{ background: "#d1fae5", border: "1px solid #10b981", color: "#065f46", borderRadius: 12, padding: "20px", textAlign: "center" }}>
+                      <Mail size={24} style={{ margin: "0 auto 12px" }} />
+                      <p style={{ fontWeight: 600 }}>Message sent successfully!</p>
+                      <p style={{ fontSize: ".9rem", marginTop: 8 }}>We'll get back to you soon.</p>
+                    </div>
+                  ) : (
+                    <form onSubmit={handleContactSubmit} style={{ spaceY: 16 }}>
+                      <div>
+                        <input
+                          type="text"
+                          name="name"
+                          placeholder={t("home.contact.name") || "Your name"}
+                          value={contactForm.name}
+                          onChange={handleContactChange}
+                          style={{ width: "100%", padding: "12px 16px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: ".9rem" }}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <input
+                          type="email"
+                          name="email"
+                          placeholder={t("home.contact.email") || "Your email"}
+                          value={contactForm.email}
+                          onChange={handleContactChange}
+                          style={{ width: "100%", padding: "12px 16px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: ".9rem" }}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <input
+                          type="text"
+                          name="subject"
+                          placeholder={t("home.contact.subject") || "Subject"}
+                          value={contactForm.subject}
+                          onChange={handleContactChange}
+                          style={{ width: "100%", padding: "12px 16px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: ".9rem" }}
+                        />
+                      </div>
+                      <div>
+                        <textarea
+                          name="message"
+                          placeholder={t("home.contact.message") || "Your message"}
+                          value={contactForm.message}
+                          onChange={handleContactChange}
+                          rows={5}
+                          style={{ width: "100%", padding: "12px 16px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: ".9rem", resize: "vertical" }}
+                          required
+                        />
+                      </div>
+                      {contactError && <p style={{ color: "#dc2626", fontSize: ".9rem" }}>{contactError}</p>}
+                      <button
+                        type="submit"
+                        disabled={sending}
+                        style={{ width: "100%", background: "linear-gradient(135deg,#C9A84C,#E8C97A)", color: "#0B1426", fontWeight: 600, padding: "12px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: ".9rem" }}
+                      >
+                        {sending ? "Sending..." : (t("home.contact.send") || "Send Message")}
+                      </button>
+                    </form>
+                  )}
+                </div>
+
+                <div>
+                  <h3 className="display" style={{ fontSize: "1.5rem", fontWeight: 600, color: "#0B1426", marginBottom: 24 }}>
+                    {t("home.contact.infoTitle") || "Contact Information"}
+                  </h3>
+                  <div style={{ spaceY: 16 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <Mail size={20} color="#C9A84C" />
+                      <div>
+                        <p style={{ fontWeight: 600, color: "#0B1426" }}>Email</p>
+                        <p style={{ color: "#64748B" }}>support@ainextro.com</p>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <Phone size={20} color="#C9A84C" />
+                      <div>
+                        <p style={{ fontWeight: 600, color: "#0B1426" }}>Phone</p>
+                        <p style={{ color: "#64748B" }}>+1 (555) 123-4567</p>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <Circle size={20} color="#C9A84C" />
+                      <div>
+                        <p style={{ fontWeight: 600, color: "#0B1426" }}>Address</p>
+                        <p style={{ color: "#64748B" }}>123 Learning Street<br />Education City, EC 12345</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* ══════════════════ BLOG SECTION ══════════════════ */}
         <section style={{ background: "#FAF6EE", padding: "96px 24px" }}>
           <div style={{ maxWidth: 1280, margin: "0 auto" }}>
             <div style={{ textAlign: "center", marginBottom: 56 }}>
               <div style={{ display: "inline-flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
                 <div className="gold-rule" />
-                <span style={{ fontSize: ".75rem", fontWeight: 700, color: "#C9A84C", letterSpacing: ".12em", textTransform: "uppercase" }}>Get In Touch</span>
+                <span style={{ fontSize: ".75rem", fontWeight: 700, color: "#C9A84C", letterSpacing: ".12em", textTransform: "uppercase" }}>Latest Articles</span>
                 <div className="gold-rule" />
               </div>
               <h2 className="display" style={{ fontSize: "clamp(2rem,4vw,3.2rem)", fontWeight: 700, color: "#0B1426", lineHeight: 1.15 }}>
-                {t("home.contact.title") || "We're Here For You"}
+                {t("home.blog.title") || "Learn From Expert Insights"}
               </h2>
               <p style={{ color: "#64748B", fontSize: "1.05rem", maxWidth: 460, margin: "16px auto 0", lineHeight: 1.7 }}>
-                {t("home.contact.subtitle") || "Have questions? Our team is ready to guide you on your learning journey."}
+                {t("home.blog.subtitle") || "Read articles shared by our instructors to enhance your learning journey."}
               </p>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(320px,1fr))", gap: 28, alignItems: "stretch" }}>
-              {/* Form */}
-              <div className="light-card" style={{ padding: "44px 40px", display: "flex", flexDirection: "column" }}>
-                <div className="gold-rule" style={{ marginBottom: 20 }} />
-                <h3 className="display" style={{ fontSize: "1.6rem", fontWeight: 700, color: "#0B1426", marginBottom: 6 }}>Send a Message</h3>
-                <p style={{ color: "#94A3B8", fontSize: ".88rem", marginBottom: 28 }}>Fill in the form and we'll reply within 24 hours.</p>
+            {blogsLoading && (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "60px 24px" }}>
+                <div style={{ 
+                  width: 40, 
+                  height: 40, 
+                  border: "3px solid rgba(201,168,76,.2)", 
+                  borderTopColor: "#C9A84C", 
+                  borderRadius: "50%", 
+                  animation: "spin 1s linear infinite" 
+                }} />
+              </div>
+            )}
 
-                {sent && (
-                  <div style={{ background: "#ecfdf5", border: "1px solid #a7f3d0", color: "#065f46", borderRadius: 12, padding: "14px 18px", marginBottom: 20, fontSize: ".9rem" }}>
-                    ✓ {t("home.contact.thankYou") || "Thank you! We'll be in touch soon."}
-                  </div>
-                )}
-                {contactError && (
-                  <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", color: "#b91c1c", borderRadius: 12, padding: "14px 18px", marginBottom: 20, fontSize: ".9rem" }}>
-                    {contactError}
-                  </div>
-                )}
+            {blogsError && (
+              <div style={{ 
+                background: "#fef2f2", 
+                border: "1px solid #fca5a5", 
+                color: "#b91c1c", 
+                borderRadius: 12, 
+                padding: "20px 24px", 
+                textAlign: "center"
+              }}>
+                {blogsError}
+              </div>
+            )}
 
-                <form onSubmit={handleContactSubmit} style={{ display: "flex", flexDirection: "column", gap: 20, flex: 1 }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
-                    {[
-                      { id: "contact-name", name: "name", type: "text", label: "Full Name *", ph: "Your name", icon: <User size={16} color="#C9A84C" />, val: contactForm.name },
-                      { id: "contact-email", name: "email", type: "email", label: "Email Address *", ph: "your@email.com", icon: <Mail size={16} color="#C9A84C" />, val: contactForm.email },
-                    ].map(({ id, name, type, label, ph, icon, val }) => (
-                      <div key={id}>
-                        <label htmlFor={id} className="form-label">{label}</label>
-                        <div style={{ position: "relative" }}>
-                          <span style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)" }}>{icon}</span>
-                          <input id={id} name={name} type={type} value={val} onChange={handleContactChange} placeholder={ph} required className="form-input" />
-                        </div>
+            {!blogsLoading && !blogsError && blogs.length === 0 && (
+              <div style={{ 
+                background: "#f1f5f9", 
+                borderRadius: 12, 
+                padding: "40px 24px", 
+                textAlign: "center",
+                color: "#64748B"
+              }}>
+                <BookOpen size={48} style={{ margin: "0 auto 16px", opacity: 0.5 }} />
+                <p style={{ fontSize: "1rem" }}>No blogs published yet. Check back soon!</p>
+              </div>
+            )}
+
+            {!blogsLoading && blogs.length > 0 && (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(320px,1fr))", gap: 28 }}>
+                {blogs.map((blog: any) => (
+                  <Link 
+                    key={blog._id} 
+                    href={`/blog/${blog.slug ?? blog._id}`}
+                    style={{ textDecoration: "none" }}
+                  >
+                    <div className="light-card" style={{ 
+                      padding: "24px", 
+                      display: "flex", 
+                      flexDirection: "column", 
+                      height: "100%",
+                      cursor: "pointer"
+                    }}>
+                      <div style={{ 
+                        background: "linear-gradient(135deg,#C9A84C,#E8C97A)", 
+                        height: 200, 
+                        borderRadius: 12, 
+                        marginBottom: 20,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "#0B1426"
+                      }}>
+                        <BookOpen size={48} />
                       </div>
-                    ))}
-                  </div>
-                  <div>
-                    <label htmlFor="contact-subject" className="form-label">Topic</label>
-                    <div style={{ position: "relative" }}>
-                      <span style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)" }}><MessageSquare size={16} color="#C9A84C" /></span>
-                      <select id="contact-subject" name="subject" value={contactForm.subject} onChange={handleContactChange} className="form-select">
-                        <option value="">Select a topic…</option>
-                        <option value="general">General Enquiry</option>
-                        <option value="support">Technical Support</option>
-                        <option value="courses">Course Information</option>
-                        <option value="feedback">Feedback</option>
-                        <option value="other">Other</option>
-                      </select>
+                      <h3 className="display" style={{ 
+                        fontSize: "1.2rem", 
+                        fontWeight: 700, 
+                        color: "#0B1426", 
+                        marginBottom: 12,
+                        lineHeight: 1.4
+                      }}>
+                        {blog.title}
+                      </h3>
+                      <p style={{ 
+                        color: "#64748B", 
+                        fontSize: ".95rem", 
+                        lineHeight: 1.6, 
+                        marginBottom: 16,
+                        flex: 1
+                      }}>
+                        {blog.excerpt ?? "No excerpt available"}
+                      </p>
+                      <div style={{ 
+                        display: "flex", 
+                        alignItems: "center", 
+                        gap: 12, 
+                        paddingTop: 16, 
+                        borderTop: "1px solid rgba(201,168,76,.15)"
+                      }}>
+                        <Calendar size={14} color="#C9A84C" />
+                        <span style={{ fontSize: ".85rem", color: "#94A3B8" }}>
+                          {blog.createdAt ? new Date(blog.createdAt).toLocaleDateString() : "Recently"}
+                        </span>
+                        {blog.likes !== undefined && (
+                          <>
+                            <span style={{ color: "#E2E8F0" }}>·</span>
+                            <span style={{ fontSize: ".85rem", color: "#94A3B8" }}>
+                              {blog.likes} likes
+                            </span>
+                          </>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  <div>
-                    <label htmlFor="contact-message" className="form-label">Message *</label>
-                    <textarea id="contact-message" name="message" value={contactForm.message} onChange={handleContactChange} placeholder="Tell us how we can help…" required className="form-textarea" />
-                  </div>
-                  <button type="submit" disabled={sending} className="btn-navy" style={{ justifyContent: "center", opacity: sending ? .6 : 1, marginTop: "auto" }}>
-                    {sending
-                      ? <><span style={{ width: 16, height: 16, border: "2px solid rgba(255,255,255,.3)", borderTopColor: "#fff", borderRadius: "50%", display: "inline-block", animation: "spin 1s linear infinite" }} /> Sending…</>
-                      : <><Send size={16} /> Send Message</>
-                    }
-                  </button>
-                </form>
+                  </Link>
+                ))}
               </div>
+            )}
 
-              {/* Map */}
-              <div className="light-card" style={{ overflow: "hidden", display: "flex", flexDirection: "column", minHeight: 420 }}>
-                <div style={{ padding: "24px 28px", borderBottom: "1px solid rgba(201,168,76,.15)", background: "linear-gradient(135deg,#0B1426,#14213D)", display: "flex", alignItems: "center", gap: 12 }}>
-                  <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#4ADE80", boxShadow: "0 0 8px #4ADE80" }} />
-                  <div>
-                    <div style={{ color: "#fff", fontWeight: 600, fontSize: ".95rem" }}>Find Our Campus</div>
-                    <div style={{ color: "rgba(255,255,255,.45)", fontSize: ".78rem", marginTop: 2 }}>Jaipur, Rajasthan, India</div>
-                  </div>
-                </div>
-                <div style={{ flex: 1, position: "relative", minHeight: 320 }}>
-                  <iframe
-                    title="Office location"
-                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d56933.791!2d75.7727232!3d26.9975522!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x396c4adf4c57e281%3A0xce3c2d7738b4b43!2sJaipur%2C%20Rajasthan!5e0!3m2!1sen!2sin!4v1709123456789!5m2!1sen!2sin"
-                    allowFullScreen loading="lazy" referrerPolicy="no-referrer-when-downgrade"
-                    style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: 0 }}
-                  />
-                </div>
+            {!blogsLoading && blogs.length > 0 && (
+              <div style={{ textAlign: "center", marginTop: 48 }}>
+                <Link
+                  href="/blog"
+                  style={{ 
+                    display: "inline-flex", 
+                    alignItems: "center", 
+                    gap: 8, 
+                    background: "linear-gradient(135deg,#C9A84C,#E8C97A)", 
+                    color: "#0B1426", 
+                    fontWeight: 600, 
+                    padding: "14px 28px", 
+                    borderRadius: 12, 
+                    textDecoration: "none", 
+                    transition: "transform .2s"
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.transform = "translateY(-2px)"}
+                  onMouseLeave={(e) => e.currentTarget.style.transform = "translateY(0)"}
+                >
+                  View All Blogs
+                </Link>
               </div>
-            </div>
+            )}
           </div>
         </section>
 

@@ -8,6 +8,8 @@ import {
   instructorUnpublishBlog,
   instructorDeleteBlog,
 } from "@/lib/instructor-api";
+import { apiJson } from "@/lib/api";
+import { useAuthStore } from "@/lib/auth-store";
 import { FileText, Edit, Trash2, Send, EyeOff } from "lucide-react";
 
 type Blog = {
@@ -23,13 +25,20 @@ export default function MyBlogsPage() {
   const [res, setRes] = useState<{ data?: Blog[]; pagination?: { total: number } } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const primaryRole = useAuthStore((s) => s.primaryRole());
 
   useEffect(() => {
-    instructorGetMyBlogs()
+    const load = primaryRole === "admin" 
+      ? apiJson<{ status: boolean; data: { blogs: any[]; total: number; page: number; limit: number; pages: number } }>("admin/blogs").then(r => ({
+          data: r.data.blogs.map(b => ({ ...b, isPublished: b.published })),
+          pagination: { total: r.data.total }
+        }))
+      : instructorGetMyBlogs();
+    load
       .then(setRes)
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load"))
       .finally(() => setLoading(false));
-  }, []);
+  }, [primaryRole]);
 
   const handlePublish = async (id: string, publish: boolean) => {
     try {
