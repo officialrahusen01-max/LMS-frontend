@@ -2,7 +2,7 @@
 let backendOrigin =
   process.env.BACKEND_ORIGIN ||
   process.env.INTERNAL_API_ORIGIN ||
-  "http://127.0.0.1:5000";
+  "https://lms-qh1c.onrender.com";
 
 // Ensure protocol is present
 if (!backendOrigin.startsWith("http://") && !backendOrigin.startsWith("https://")) {
